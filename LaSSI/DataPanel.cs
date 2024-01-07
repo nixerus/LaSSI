@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using LaSSI.Schema;
 
 namespace LaSSI
 {
@@ -55,6 +56,12 @@ namespace LaSSI
          ID = "DetailsRevertButton",
          Enabled = false
       };
+      private readonly Button Delete = new()
+      {
+         Text = "Delete",
+         ID = "DetailsDeleteButton",
+         Enabled = false
+      };
       //private DetailsLayout? CurrentDetails;
       private List<Node>? freespaceObjectsWithComet = null;
       private List<Node>? crossSectorMissions = null;
@@ -86,6 +93,7 @@ namespace LaSSI
       {
          Apply.Click += ApplyButton_Click;
          Revert.Click += RevertButton_Click;
+         Delete.Click += DeleteButton_Click;
 
          Splitter sp = CreateSplitter();
          sp.Panel1 = CreateTreeView(ParentWidth / 2);
@@ -205,8 +213,8 @@ namespace LaSSI
          {
             ID = "Panel2DetailsLayout"
          };
-         Panel2Layout.AddSeparateRow(CreateApplyRevertButtonsLayout());
          Panel2Layout.AddSeparateRow(Panel2DetailsLayout);
+         Panel2Layout.AddSeparateRow(CreateApplyRevertButtonsLayout());
          return Panel2Layout;
       }
       private StackLayout CreateApplyRevertButtonsLayout()
@@ -220,6 +228,7 @@ namespace LaSSI
 
          ApplyRevertLayout.Items.Add(Apply);
          ApplyRevertLayout.Items.Add(Revert);
+         ApplyRevertLayout.Items.Add(Delete);
 
          return ApplyRevertLayout;
       }
@@ -653,6 +662,9 @@ namespace LaSSI
          {
             ClearItemFromCache(item);
          }
+         
+         Delete.Enabled = item.Parent != null;
+         
          DynamicLayout detailslayout = GetPanel2DetailsLayout();
          if (!DetailPanelsCache.ContainsKey(item))
          {
@@ -1528,6 +1540,7 @@ namespace LaSSI
          TreeGridView treeView = GetTreeGridView();
          treeView.DataStore = (TreeGridItemCollection)treeView.DataStore;
       }
+      
       private void TreeView_CellFormatting(object? sender, GridCellFormatEventArgs e)
       {
          if (sender is not null and TreeGridView tree)
@@ -1724,7 +1737,21 @@ namespace LaSSI
          int firstEditableColumn = GetFirstEditableColumn(grid);
          if (selectedRow >= 0 && firstEditableColumn >= 0)
          {
-            grid.BeginEdit(selectedRow, firstEditableColumn);
+            var onceler = grid.DataStore.ElementAt(selectedRow) as Oncler;
+            var options = mainForm.Schema.GetOptions(GetSelectedNode(), onceler);
+            if (options == null)
+            {
+               grid.BeginEdit(selectedRow, firstEditableColumn);
+            }
+            else
+            {
+               var select = new SchemaSelectWindow(onceler, options);
+               CurrentValues = new PreviousEntry(firstEditableColumn, selectedRow, onceler.ToDictionaryEntry());
+               var result = select.ShowModal();
+               onceler.Value = result;
+               GetDefaultGridView().ReloadData(selectedRow);
+               OnclerModified(onceler);
+            }
          }
       }
 
@@ -1758,14 +1785,11 @@ namespace LaSSI
             }
          }
       }
-      private void DefaultGridView_CellEdited(object? sender, GridViewCellEventArgs e)
-      {
-         //DetailsLayout.State state = DetailsLayout.State.Unmodified;
-         if (CurrentValues is not null && CurrentValues.IsChanged(((Oncler)e.Item).ToDictionaryEntry())) // todo: revise this so manually setting changes back runs Unmodified!
-         {
 
-            //Changes.Add(new CollectionChange(CollectionChange.ActionType.Change, CurrentValues.deV));
-            //state = DetailsModified();
+      private void OnclerModified(Oncler oncler)
+      {
+         if (CurrentValues is not null && CurrentValues.IsChanged(oncler.ToDictionaryEntry())) // todo: revise this so manually setting changes back runs Unmodified!
+         {
             DetailsModified();
             AddUnappliedToDataState();
          }
@@ -1773,12 +1797,11 @@ namespace LaSSI
          {
             DetailsUnmodified();
          }
-         //if (state == DetailsLayout.State.Modified)
-         //{
-         //   TreeGridView tree = GetTreeGridView();
-         //   UpdateTreeGridItemStatus((TreeGridItem)tree.SelectedItem, NodeStatus.Edited);
-         //   //tree.TriggerStyleChanged();
-         //}
+      }
+      
+      private void DefaultGridView_CellEdited(object? sender, GridViewCellEventArgs e)
+      {
+         OnclerModified((Oncler)e.Item);
       }
 
       private void DefaultGridView_CellEditing(object? sender, GridViewCellEventArgs e)
@@ -1806,15 +1829,10 @@ namespace LaSSI
          if (sender is not null and TreeGridView view)
          {
             Node item = (Node)view.SelectedItem;
-            //item.SetValue(2, Colors.Magenta);
             if (item is not null)
             {
                UpdateDetailsPanel(item);
             }
-            //else
-            //{
-            //   ClearDetailsPanel();
-            //}
          }
       }
       //private void X_CellFormatting(object? sender, GridCellFormatEventArgs e)
@@ -1883,6 +1901,31 @@ namespace LaSSI
          }
       }
 
+      private void DeleteButton_Click(object? sender, EventArgs e)
+      {
+         var node = GetSelectedNode();
+         var parent = (Node?)node.Parent;
+         if (parent == null)
+            return;
+
+         var result = MessageBox.Show($"You are about to delete {node.Name}. Are you sure?", $"Deleting {node.Name}",
+            MessageBoxButtons.YesNo, MessageBoxType.Warning,
+            MessageBoxDefaultButton.No);
+
+         if (result == DialogResult.Yes)
+         {
+            GetTreeGridView().SelectedItem = node.Parent;
+            parent.RemoveChild(node);
+            UpdateDetailsPanel(parent);
+            RefreshTree();
+         }
+      }
+
+      private void DeleteNode(Node node)
+      {
+         
+      }
+
       private Control GetDetailsControl()
       {
          DynamicLayout detailsLayout = (DynamicLayout)GetPanel2DetailsLayout().Content;
@@ -1924,6 +1967,7 @@ namespace LaSSI
       {
          return (Node)GetTreeGridView().SelectedItem;
       }
+      
       private void RightGrid_Updated(object? sender, EventArgs? e)
       {
          if (sender is not null and ObservableCollection<InventoryGridItem> RightList)

@@ -29,8 +29,12 @@ namespace LaSSI
       internal CustomCommands? CustomCommands;
       internal SubMenuItem fileMenu;
       internal Prefs prefs;
+
+      internal Schema.Schema Schema;
+      
       void InitializeComponent()
       {
+         Schema = new Schema.Schema();
          Closing += MainForm_Closing;
          Title = "LaSSI (the Last Starship Save Inspector)";
          MinimumSize = new Size(200, 200);
@@ -143,6 +147,7 @@ namespace LaSSI
          }
          return InventoryMasterList;
       }
+      
       private static Uri GetSavesUri()
       {
          string savesFolderPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal);

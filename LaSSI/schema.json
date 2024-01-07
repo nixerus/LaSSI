@@ -1,0 +1,22 @@
+{
+  "tree": {
+    "Layer": {
+      "Type": "layerType",
+      "Class": "layerClass"
+    }
+  },
+  "types": {
+    "layerType": [
+      "FreeSpace",
+      "FriendlyShip",
+      "NeutralShip",
+      "HostileShip",
+      "ShipForSale",
+      "Derelict"
+    ], 
+    "layerClass": [
+      "Ship",
+      "Station"
+    ]
+  }
+}

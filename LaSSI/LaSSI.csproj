@@ -22,6 +22,9 @@
 		<EmbeddedResource Include="InventoryMasterList.txt" />
 	</ItemGroup>
 	<ItemGroup>
+		<EmbeddedResource Include="schema.json" />
+	</ItemGroup>
+	<ItemGroup>
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 	</ItemGroup>
 	<ItemGroup>
